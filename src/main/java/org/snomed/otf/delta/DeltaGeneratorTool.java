@@ -38,7 +38,7 @@ public class DeltaGeneratorTool
 			dtFormatter.parse(args[0]);
 			app.previousEffectiveDate = args[0];
 		} catch (Exception e) {
-			throw new IllegalArgumentException("Invalid previous effective time (yyyyMMdd): " + args[1]);
+			throw new IllegalArgumentException("Invalid previous effective time (yyyyMMdd): " + args[0]);
 		}
 		app.archive = validateFile(args[1]);
 		

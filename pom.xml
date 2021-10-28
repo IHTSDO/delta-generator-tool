@@ -52,10 +52,10 @@
 				<artifactId>maven-jar-plugin</artifactId>
 				<version>3.0.2</version>
 				<configuration>
-					<finalName>DeltaGenerationTool</finalName>
+					<finalName>DeltaGeneratorTool</finalName>
 					<archive>
 						<manifest>
-							<mainClass>org.snomed.otf.delta.DeltaGenerationTool</mainClass>
+							<mainClass>org.snomed.otf.delta.DeltaGeneratorTool</mainClass>
 						</manifest>
 					</archive>
 				</configuration>
