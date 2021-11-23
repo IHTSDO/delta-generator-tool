@@ -11,10 +11,10 @@ This tool works by scanning through the full files in the package and extracting
 
 ### Usage
 ```
-Usage: java -jar DeltaGeneratorTool.jar <effectiveTime> <RF2 Archive Path> [<maxEffectiveTime>]
+Usage: java -jar DeltaGeneratorTool.jar <previousEffectiveTime> <RF2 Archive Path> [<maxEffectiveTime>]
 ```
 
-* effectiveTime - the effective time previously ingested, in format yyyyMMdd.  Any row  _after_  this date will be included in the delta.
+* previousEffectiveTime - the effective time _previously_ ingested ie the effective time of the _last_ release obtained, in format yyyyMMdd.  Any row  _after_  this date will be included in the delta.
 
 * RF2 Archive Path - the path to a SNOMED RF2 archive containing some set of full files.
 
