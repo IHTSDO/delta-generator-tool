@@ -24,6 +24,11 @@ public class DeltaGeneratorTool
 	private int rowsExported = 0;
 	private Path tempDir;
 	
+	//Although MS Windows use backslashes in their file paths, the standard for zip archive states
+	//that file separators should always be the backslash
+	private static final String BWD_SLASH = "\\\\";
+	private static final String FWD_SLASH = "/";
+	
 	public static void main(String[] args) throws IOException {
 		DeltaGeneratorTool app = new DeltaGeneratorTool();
 		info("SNOMED International RF2 Delta Generator Tool");
@@ -181,7 +186,7 @@ public class DeltaGeneratorTool
 				continue;
 			}
 			FileInputStream in = new FileInputStream(files[i].getAbsolutePath());
-			String relativePath = files[i].getAbsolutePath().substring(rootLocation.length());
+			String relativePath = files[i].getAbsolutePath().substring(rootLocation.length()).replaceAll(BWD_SLASH,FWD_SLASH);
 			if (maxAllowableEffectiveDate != null) {
 				relativePath = relativePath.replaceAll(latestEffectiveDate, maxAllowableEffectiveDate);
 			}

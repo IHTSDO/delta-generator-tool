@@ -22,6 +22,16 @@ Usage: java -jar DeltaGeneratorTool.jar <previousEffectiveTime> <RF2 Archive Pat
 
 Processing files will be written to a temporary directory, and an archive package will be generated in the current directory.   If a maxEffectiveTime has been set, then the effectiveDate in the archive filenames will be replaced with maxEffectiveTime.
 
+#### Example (MacOs/Unix):
+```
+java -jar DeltaGeneratorTool.jar 20210731 ~/Backup/xSnomedCT_InternationalRF2_MEMBER_20220131T120000Z.zip
+```
+
+#### Example (MS Windows):
+```
+java -jar DeltaGeneratorTool.jar 20210731 %USERPROFILE%\Backup\xSnomedCT_InternationalRF2_MEMBER_20220131T120000Z.zip
+```
+
 ## Documentation
 - [Frequently Asked Questions FAQ](docs/faq.md)
 - [Expected Output](docs/ExpectedOutput.md)
