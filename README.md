@@ -32,6 +32,9 @@ java -jar DeltaGeneratorTool.jar 20210731 ~/Backup/xSnomedCT_InternationalRF2_ME
 java -jar DeltaGeneratorTool.jar 20210731 %USERPROFILE%\Backup\xSnomedCT_InternationalRF2_MEMBER_20220131T120000Z.zip
 ```
 
+### Snowstorm Warning
+At this time the Snowstorm terminology server is not able to process the delta files created by this tool because there can be multiple rows for the same component. To update Snowstorm with a new version of a code system please use a snapshot import.
+
 ## Documentation
 - [Frequently Asked Questions FAQ](docs/faq.md)
 - [Expected Output](docs/ExpectedOutput.md)
