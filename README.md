@@ -11,7 +11,7 @@ This tool works by scanning through the full files in the package and extracting
 
 ### Usage
 ```
-Usage: java -jar DeltaGeneratorTool.jar <previousEffectiveTime> <RF2 Archive Path> [<maxEffectiveTime>]
+Usage: java -jar DeltaGeneratorTool.jar <previousEffectiveTime> <RF2 Archive Path> [<maxEffectiveTime>] [-latest-state]
 ```
 
 * previousEffectiveTime - the effective time _previously_ ingested ie the effective time of the _last_ release obtained, in format yyyyMMdd.  Any row  _after_  this date will be included in the delta.
@@ -19,6 +19,9 @@ Usage: java -jar DeltaGeneratorTool.jar <previousEffectiveTime> <RF2 Archive Pat
 * RF2 Archive Path - the path to a SNOMED RF2 archive containing some set of full files.
 
 * maxEffectiveTime - optionally also specify the latest effective time to be included (this date is used inclusively)
+
+* `-latest-state` this flag extracts only the latest state of each component that has changed within the requested date range. It prevents the delta archive containing 
+  multiple states for any single SNOMED CT component (Concept, Description, Relationship or Reference Set Member).
 
 Processing files will be written to a temporary directory, and an archive package will be generated in the current directory.   If a maxEffectiveTime has been set, then the effectiveDate in the archive filenames will be replaced with maxEffectiveTime.
 
@@ -33,7 +36,10 @@ java -jar DeltaGeneratorTool.jar 20210731 %USERPROFILE%\Backup\xSnomedCT_Interna
 ```
 
 ### Snowstorm Warning
-At this time the Snowstorm terminology server is not able to process the delta files created by this tool because there can be multiple rows for the same component. To update Snowstorm with a new version of a code system please use a snapshot import.
+The Snowstorm terminology server is not able to process delta files containing multiple rows for the same component. 
+
+To load a new version of a code system into Snowstorm either use the `-latest-state` flag within this tool when creating a delta archive or simply 
+import a snapshot instead (slower but has the same effect).
 
 ## Documentation
 - [Frequently Asked Questions FAQ](docs/faq.md)
