@@ -11,7 +11,7 @@ This tool works by scanning through the full files in the package and extracting
 
 ### Usage
 ```
-Usage: java -jar DeltaGeneratorTool.jar <previousEffectiveTime> <RF2 Archive Path> [<maxEffectiveTime>] [-latest-state]
+Usage: java -Xms1g -jar DeltaGeneratorTool.jar <previousEffectiveTime> <RF2 Archive Path> [<maxEffectiveTime>] [-latest-state]
 ```
 
 * previousEffectiveTime - the effective time _previously_ ingested ie the effective time of the _last_ release obtained, in format yyyyMMdd.  Any row  _after_  this date will be included in the delta.
