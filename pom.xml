@@ -6,7 +6,7 @@
 
 	<groupId>org.snomed.otf</groupId>
 	<artifactId>delta-generator-tool</artifactId>
-	<version>1.1.0</version>
+	<version>1.2.0</version>
 
 	<name>delta-generator-tool</name>
 	<description>Command line Java tool to extract an RF2 delta from a particular date, from a archive containing SNOMED Full files</description>
