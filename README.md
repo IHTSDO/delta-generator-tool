@@ -46,4 +46,5 @@ import a snapshot instead (slower but has the same effect).
 - [Expected Output](docs/ExpectedOutput.md)
 - [Potential Errors](docs/PotentialErrors.md)
 - [Validation of Results](docs/Validation.md)
+- [Edition Effective Time LeapFrogging](docs/EditionET_LeapFrogging.md)
 
