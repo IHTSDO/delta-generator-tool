@@ -18,22 +18,26 @@ import java.util.zip.ZipOutputStream;
 public class DeltaGeneratorTool
 {
 	public static final String LATEST_STATES_FLAG = "-latest-state";
-	public static String FIELD_DELIMITER = "\t";
-	public static String LINE_DELIMITER = "\r\n";
-	public static int IDX_EFFECTIVE_TIME = 1;
+	public static final String FIELD_DELIMITER = "\t";
+	public static final String LINE_DELIMITER = "\r\n";
+	public static final int IDX_EFFECTIVE_TIME = 1;
+	//Although MS Windows use backslashes in their file paths, the standard for zip archive states
+	//that file separators should always be the backslash
+	private static final String BWD_SLASH = "\\\\";
+	private static final String FWD_SLASH = "/";
+	
 	private static final DateTimeFormatter dtFormatter = DateTimeFormatter.ofPattern("yyyyMMdd");
+	
 	private String previousEffectiveDate = null;
 	private String latestEffectiveDate = null;
 	private String maxAllowableEffectiveDate = null;
 	private File archive;
 	private int rowsExported = 0;
 	private Path tempDir;
-	private boolean latestStates;
-
-	//Although MS Windows use backslashes in their file paths, the standard for zip archive states
-	//that file separators should always be the backslash
-	private static final String BWD_SLASH = "\\\\";
-	private static final String FWD_SLASH = "/";
+	
+	//Only used if -latest-state cmd line arg present
+	private boolean outputLatestStates;
+	private Map<String, Integer> latestComponentVersions = new HashMap<>();
 
 	public static void main(String[] args) throws IOException {
 		DeltaGeneratorTool app = new DeltaGeneratorTool();
@@ -56,7 +60,7 @@ public class DeltaGeneratorTool
 		if (args.length == 3 || args.length == 4) {
 			try {
 				if (args[2].equals(LATEST_STATES_FLAG) || (args.length == 4 && args[3].equals(LATEST_STATES_FLAG))) {
-					app.latestStates = true;
+					app.outputLatestStates = true;
 					info("Filtering for the latest state of each changed component.");
 				}
 				String maxEffectiveTime = null;
@@ -81,19 +85,23 @@ public class DeltaGeneratorTool
 	private void run() throws IOException {
 		info ("Processing " + archive.getName());
 		long startTime = new Date().getTime();
-		if (latestStates) {
-			Map<String, Integer> latestComponentVersions = processArchive(archive, true, new HashMap<>());
+		
+		info("First Pass - gathering information...");
+		processArchive(archive, true);
+		
+		if (outputLatestStates) {
 			info("Latest versions collected for " + latestComponentVersions.size() + " components");
-			info("Extracting rows");
-			processArchive(archive, false, latestComponentVersions);
-		} else {
-			info("Extracting rows");
-			processArchive(archive, false, null);
 		}
+		
+		info("Extracting rows");
+		processArchive(archive, false);
+		
 		info("Latest effective date detected in files: " + latestEffectiveDate);
 		recursiveDeleteOnExit(tempDir);
+		
 		info("Creating archive");
 		createArchive(tempDir.toFile());
+		
 		info("Processing Complete. Rows exported: " + rowsExported);
 		long endTime = new Date().getTime();
 		info("Time taken: " + ((endTime-startTime)/1000) + "s");
@@ -103,7 +111,7 @@ public class DeltaGeneratorTool
 	 * Reads the Full files within the RF2 archive, rows within the required effectiveTime range are copied to the temp directory.
 	 * If the latestStates flag is set then the latest effectiveTime of each component is collected and returned by the method.
 	 */
-	private Map<String, Integer> processArchive(File archive, boolean collectLatestStates, Map<String, Integer> latestComponentVersions) throws IOException {
+	private Map<String, Integer> processArchive(File archive, boolean firstPass) throws IOException {
 		BufferedReader reader = null;
 		try (ZipInputStream zis = new ZipInputStream(new FileInputStream(archive))) {
 			ZipEntry zipEntry = zis.getNextEntry();
@@ -115,11 +123,10 @@ public class DeltaGeneratorTool
 						File outFile = ensureFileExists(tempDir + File.separator + p.getParent() + File.separator + p.getFileName());
 						reader = new BufferedReader(new InputStreamReader(zis, StandardCharsets.UTF_8));// Leave open otherwise zip stream is closed.
 						try (BufferedWriter writer = new BufferedWriter(new FileWriter(outFile, StandardCharsets.UTF_8))) {
-
 							String line;
 							while ((line = reader.readLine()) != null) {
 								if (isHeader) {
-									if (!collectLatestStates) {
+									if (!firstPass) {
 										writer.write(line);
 										writer.write(LINE_DELIMITER);
 									}
@@ -134,7 +141,7 @@ public class DeltaGeneratorTool
 									if (effectiveDate.compareTo(previousEffectiveDate) > 0 &&
 											(maxAllowableEffectiveDate == null || effectiveDate.compareTo(maxAllowableEffectiveDate) <= 0)) {
 
-										if (collectLatestStates) {
+										if (firstPass && outputLatestStates) {
 											// Collect the latest effectiveTime for each component.
 											String id = parts[0];
 											Integer thisVersion = Integer.parseInt(effectiveDate);
@@ -142,12 +149,10 @@ public class DeltaGeneratorTool
 											if (latestVersion == null || thisVersion > latestVersion) {
 												latestComponentVersions.put(id, thisVersion);
 											}
-										} else {
-											if (latestComponentVersions == null || latestComponentVersions.get(parts[0]).toString().equals(effectiveDate)) {
+										} else if (latestComponentVersions == null || latestComponentVersions.get(parts[0]).toString().equals(effectiveDate)) {
 												writer.write(line);
 												writer.write(LINE_DELIMITER);
 												rowsExported++;
-											}
 										}
 									}
 								}
