@@ -30,7 +30,6 @@ public class DeltaGeneratorTool
 	private boolean outputLatestStates;
 	private Map<String, Integer> latestComponentVersions = new HashMap<>();
 	private Map<String, Set<Integer>> previouslySeenComponents = new HashMap<>();
-	
 
 	public static void main(String[] args) throws IOException {
 		DeltaGeneratorTool app = new DeltaGeneratorTool();
