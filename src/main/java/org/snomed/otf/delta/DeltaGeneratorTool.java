@@ -14,11 +14,12 @@ import java.util.zip.ZipOutputStream;
  */
 public class DeltaGeneratorTool
 {
-	public static final String LATEST_STATES_FLAG = "--latest-state";
+	public static final String LATEST_STATE_FLAG = "--latest-state";
 	public static final String FIELD_DELIMITER = "\t";
 	public static final String LINE_DELIMITER = "\r\n";
 	public static final int IDX_ID = 0;
 	public static final int IDX_EFFECTIVE_TIME = 1;
+	public static final int NOT_SET = -1;
 	//Although MS Windows use backslashes in their file paths, the standard for zip archive states
 	//that file separators should always be the backslash
 	private static final String BWD_SLASH = "\\\\";
@@ -26,11 +27,12 @@ public class DeltaGeneratorTool
 
 	private List<File> archives = new ArrayList<>();
 	private int rowsExported = 0;
+	private int latestComponentVersionsCollected = 0;
 	private Path tempDir;
 	private boolean outputLatestStates;
-	private Map<String, Integer> latestComponentVersions = new HashMap<>();
-	private Map<String, Set<Integer>> previouslySeenComponents = new HashMap<>();
-
+	
+	private Map<TinyUUID, ComponentData> componentDataMap = new HashMap<>();
+	
 	public static void main(String[] args) throws IOException {
 		DeltaGeneratorTool app = new DeltaGeneratorTool();
 		info("");
@@ -44,7 +46,7 @@ public class DeltaGeneratorTool
 		}
 		
 		for (String arg : args) {
-			if (arg.equals(LATEST_STATES_FLAG)) {
+			if (arg.equals(LATEST_STATE_FLAG)) {
 				app.outputLatestStates = true;
 				info("Filtering for the latest state of each changed component.");
 			} else {
@@ -69,11 +71,14 @@ public class DeltaGeneratorTool
 		for (int i=0 ; i <= lastArchive ; i++) {
 			if (i != lastArchive) {
 				processOldArchive(archives.get(i));
+				info("Previously seen effective times collected for " + componentDataMap.size() + " components");
+				System.gc();
 			} else {
 				if (outputLatestStates) {
 					info("First pass identifying latest state from " + archives.get(i));
 					processNewArchive(archives.get(i), true);
-					info("Latest versions collected for " + latestComponentVersions.size() + " components");
+					info("Latest versions collected for " + latestComponentVersionsCollected + " components");
+					System.gc();
 				}
 				info("Extracting new rows from " + archives.get(i));
 				processNewArchive(archives.get(i), false);
@@ -106,12 +111,13 @@ public class DeltaGeneratorTool
 						while ((line = reader.readLine()) != null) {
 							String[] idET = split(line);
 							//Have we seen this id before?
-							Set<Integer> etsSeen = previouslySeenComponents.get(idET[IDX_ID]);
-							if (etsSeen == null) {
-								etsSeen = new HashSet<>();
-								previouslySeenComponents.put(idET[IDX_ID], etsSeen);
+							TinyUUID idAsUUID = new TinyUUID(idET[IDX_ID]);
+							ComponentData componentData = componentDataMap.get(idAsUUID);
+							if (componentData == null) {
+								componentData = new ComponentData();
+								componentDataMap.put(idAsUUID, componentData);
 							}
-							etsSeen.add(Integer.parseInt(idET[IDX_EFFECTIVE_TIME]));
+							componentData.addPreviouslySeenEffectiveTime(Integer.parseInt(idET[IDX_EFFECTIVE_TIME]));
 						}
 					}
 				}
@@ -143,46 +149,57 @@ public class DeltaGeneratorTool
 				if (!zipEntry.isDirectory()) {
 					Path p = Paths.get(zipEntry.getName());
 					if (p.getFileName().toString().contains("Full")) {
-						info("\t" + (firstPass?"First Pass ":"") + "Processing " + p.getFileName());
+						info("\t" + (firstPass?"First pass p":"P") + "rocessing " + p.getFileName());
 						boolean isHeader = true;
-						File outFile = ensureFileExists(tempDir + File.separator + p.getParent() + File.separator + p.getFileName());
+						File outFile = null;
+						BufferedWriter writer= null;
+						if (!firstPass) {
+							outFile = ensureFileExists(tempDir + File.separator + p.getParent() + File.separator + p.getFileName());
+							writer = new BufferedWriter(new FileWriter(outFile, StandardCharsets.UTF_8));
+						}
 						reader = new BufferedReader(new InputStreamReader(zis, StandardCharsets.UTF_8));// Leave open otherwise zip stream is closed.
-						try (BufferedWriter writer = new BufferedWriter(new FileWriter(outFile, StandardCharsets.UTF_8))) {
-							String line;
-							while ((line = reader.readLine()) != null) {
-								if (isHeader) {
-									if (!firstPass) {
-										writer.write(line);
-										writer.write(LINE_DELIMITER);
-									}
-									isHeader = false;
-								} else {
-									String[] parts = split(line);
-									String id = parts[IDX_ID];
-									Integer effectiveDate = Integer.parseInt(parts[IDX_EFFECTIVE_TIME]);
-								
-									if (firstPass && outputLatestStates) {
-										// Collect the latest effectiveTime for each component.
-										Integer latestVersion = latestComponentVersions.get(id);
-										if (latestVersion == null || effectiveDate > latestVersion) {
-											latestComponentVersions.put(id, effectiveDate);
-										}
-									} else {
-										//Is this a row that we have not seen in any of the old archives?
-										Set<Integer> previouslySeenETs = previouslySeenComponents.get(id);
-										
-										//If we've not seen this at all, or not seen this effective time, consider outputting
-										if (previouslySeenETs == null || !previouslySeenETs.contains(effectiveDate)) {
-											if (!outputLatestStates || 
-													(outputLatestStates && latestComponentVersions.get(parts[0]).toString().equals(effectiveDate))) {
-												writer.write(line);
-												writer.write(LINE_DELIMITER);
-												rowsExported++;
-											}
-										}
-									} 
+						String line;
+						while ((line = reader.readLine()) != null) {
+							if (isHeader) {
+								if (!firstPass) {
+									writer.write(line);
+									writer.write(LINE_DELIMITER);
 								}
+								isHeader = false;
+							} else {
+								String[] parts = split(line);
+								TinyUUID idAsUUID = new TinyUUID(parts[IDX_ID]);
+								int effectiveDate = Integer.parseInt(parts[IDX_EFFECTIVE_TIME]);
+								
+								ComponentData componentData = componentDataMap.get(idAsUUID);
+								if (componentData == null) {
+									componentData = new ComponentData();
+									componentDataMap.put(idAsUUID, componentData);
+								}
+								
+								if (firstPass && outputLatestStates) {
+									if (componentData.latestComponentVersion == NOT_SET) {
+										latestComponentVersionsCollected++;
+									}
+									// Collect the latest effectiveTime for each component.
+									if (effectiveDate > componentData.latestComponentVersion) {
+										componentData.latestComponentVersion = effectiveDate;
+									}
+								} else {
+									//If we've not seen this at all, or not seen this effective time, consider outputting
+									if (!componentData.hasPreviouslySeenEffectiveTime(effectiveDate)) {
+										if (!outputLatestStates || 
+												(outputLatestStates && componentData.latestComponentVersion == effectiveDate)) {
+											writer.write(line);
+											writer.write(LINE_DELIMITER);
+											rowsExported++;
+										}
+									}
+								} 
 							}
+						}
+						
+						if (writer != null) {
 							writer.flush();
 							writer.close();
 						}
@@ -235,7 +252,6 @@ public class DeltaGeneratorTool
 		try {
 			// The zip filename will be the name of the first thing in the zip location
 			String zipFileName = dirToZip.listFiles()[0].getName() + ".zip";
-			
 			int fileNameModifier = 1;
 			while (new File(zipFileName).exists()) {
 				zipFileName = dirToZip.listFiles()[0].getName() + "_" + fileNameModifier++ + ".zip";
@@ -286,5 +302,66 @@ public class DeltaGeneratorTool
 				return FileVisitResult.CONTINUE;
 			}
 		});
+	}
+	
+	private class ComponentData {
+		public int latestComponentVersion = NOT_SET;
+		private int[] previouslySeenEffectiveTimes;
+		
+		public boolean hasPreviouslySeenEffectiveTime(int et) {
+			if (previouslySeenEffectiveTimes == null) {
+				return false;
+			}
+			for (int i=0; i<previouslySeenEffectiveTimes.length; i++) {
+				if (et == previouslySeenEffectiveTimes[i]) {
+					return true;
+				}
+			}
+			return false;
+		}
+		
+		public void addPreviouslySeenEffectiveTime(int et) {
+			if (previouslySeenEffectiveTimes == null) {
+				previouslySeenEffectiveTimes = new int[]{et};
+			} else if (!hasPreviouslySeenEffectiveTime(et)) {
+				int newLength = previouslySeenEffectiveTimes.length + 1;
+				previouslySeenEffectiveTimes = Arrays.copyOf(previouslySeenEffectiveTimes, newLength);
+				previouslySeenEffectiveTimes[newLength -1] = et;
+			}
+		}
+	}
+	
+	private class TinyUUID {
+		long leastSig;
+		long mostSig;
+		int hashCode;
+		
+		TinyUUID(String id) {
+			this.hashCode = id.hashCode();
+			if (id.contains("-")) {
+				UUID uuid = UUID.fromString(id);
+				this.leastSig = uuid.getLeastSignificantBits();
+				this.mostSig = uuid.getMostSignificantBits();
+			} else {
+				mostSig = Long.parseLong(id);
+			}
+		}
+		
+		@Override
+		public int hashCode() {
+			return hashCode;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			TinyUUID other = (TinyUUID)obj;
+			return (this.leastSig == other.leastSig) && (this.mostSig == other.mostSig);
+		}
 	}
 }
