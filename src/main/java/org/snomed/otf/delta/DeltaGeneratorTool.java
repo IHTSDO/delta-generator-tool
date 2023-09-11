@@ -25,13 +25,13 @@ public class DeltaGeneratorTool
 	private static final String BWD_SLASH = "\\\\";
 	private static final String FWD_SLASH = "/";
 
-	private List<File> archives = new ArrayList<>();
+	private final List<File> archives = new ArrayList<>();
 	private int rowsExported = 0;
 	private int latestComponentVersionsCollected = 0;
 	private Path tempDir;
 	private boolean outputLatestStates;
 	
-	private Map<TinyUUID, ComponentData> componentDataMap = new HashMap<>();
+	private final Map<TinyUUID, ComponentData> componentDataMap = new HashMap<>();
 	
 	public static void main(String[] args) throws IOException {
 		DeltaGeneratorTool app = new DeltaGeneratorTool();
@@ -151,7 +151,7 @@ public class DeltaGeneratorTool
 					if (p.getFileName().toString().contains("Full")) {
 						info("\t" + (firstPass?"First pass p":"P") + "rocessing " + p.getFileName());
 						boolean isHeader = true;
-						File outFile = null;
+						File outFile;
 						BufferedWriter writer= null;
 						if (!firstPass) {
 							outFile = ensureFileExists(tempDir + File.separator + p.getParent() + File.separator + p.getFileName());
@@ -190,7 +190,8 @@ public class DeltaGeneratorTool
 									if (!componentData.hasPreviouslySeenEffectiveTime(effectiveDate)) {
 										if (!outputLatestStates || 
 												(outputLatestStates && componentData.latestComponentVersion == effectiveDate)) {
-											writer.write(line);
+                                            assert writer != null;
+                                            writer.write(line);
 											writer.write(LINE_DELIMITER);
 											rowsExported++;
 										}
@@ -251,10 +252,10 @@ public class DeltaGeneratorTool
 		File outputFile;
 		try {
 			// The zip filename will be the name of the first thing in the zip location
-			String zipFileName = dirToZip.listFiles()[0].getName() + ".zip";
+			String zipFileName = Objects.requireNonNull(dirToZip.listFiles())[0].getName() + ".zip";
 			int fileNameModifier = 1;
 			while (new File(zipFileName).exists()) {
-				zipFileName = dirToZip.listFiles()[0].getName() + "_" + fileNameModifier++ + ".zip";
+				zipFileName = Objects.requireNonNull(dirToZip.listFiles())[0].getName() + "_" + fileNameModifier++ + ".zip";
 			}
 			outputFile = new File(zipFileName);
 			ZipOutputStream out = new ZipOutputStream(new FileOutputStream(outputFile));
@@ -290,21 +291,22 @@ public class DeltaGeneratorTool
 	
 	//See https://stackoverflow.com/questions/15022219/does-files-createtempdirectory-remove-the-directory-after-jvm-exits-normally/20280989
 	public static void recursiveDeleteOnExit(Path path) throws IOException {
-		Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
-			@Override
-			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-				file.toFile().deleteOnExit();
-				return FileVisitResult.CONTINUE;
-			}
-			@Override
-			public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
-				dir.toFile().deleteOnExit();
-				return FileVisitResult.CONTINUE;
-			}
-		});
+		Files.walkFileTree(path, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                file.toFile().deleteOnExit();
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                dir.toFile().deleteOnExit();
+                return FileVisitResult.CONTINUE;
+            }
+        });
 	}
 	
-	private class ComponentData {
+	private static class ComponentData {
 		public int latestComponentVersion = NOT_SET;
 		private int[] previouslySeenEffectiveTimes;
 		
@@ -312,11 +314,11 @@ public class DeltaGeneratorTool
 			if (previouslySeenEffectiveTimes == null) {
 				return false;
 			}
-			for (int i=0; i<previouslySeenEffectiveTimes.length; i++) {
-				if (et == previouslySeenEffectiveTimes[i]) {
-					return true;
-				}
-			}
+            for (int previouslySeenEffectiveTime : previouslySeenEffectiveTimes) {
+                if (et == previouslySeenEffectiveTime) {
+                    return true;
+                }
+            }
 			return false;
 		}
 		
@@ -331,7 +333,7 @@ public class DeltaGeneratorTool
 		}
 	}
 	
-	private class TinyUUID {
+	private static class TinyUUID {
 		long leastSig;
 		long mostSig;
 		int hashCode;

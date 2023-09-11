@@ -1,11 +1,11 @@
-# RF2 Delta Generator Tool 2.0
+# RF2 Delta Generator Tool 3.0
 
 Command line Java tool to calculate the delta from two archives containing SNOMED Full files.
 
 This tool works by scanning through the previous archive and then processing the new archive and outputting any rows that were not present in the previous archive (unless --latest-state is in effect)
 
 ### Pre-requisites
-* Java 11 Runtime or SDK (or higher)
+* Java 17 Runtime or SDK (or higher)
 * The DeltaGeneratorTool.jar file, downloaded from this GitHub project https://github.com/IHTSDO/delta-generator-tool/releases
 * Two or more SNOMED CT release archives (.zip) that contains Full files.
 
