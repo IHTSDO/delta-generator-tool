@@ -22,6 +22,7 @@ public class DeltaGeneratorTool
 	public static final int NOT_SET = -1;
 	//The Identifier file's alternateIdentifier is a String in its native scheme (eg a LOINC code), not an SCTID or UUID
 	private static final String IDENTIFIER_CONTENT_TYPE = "Identifier";
+	private static final int IDX_IDENTIFIER_SCHEME_ID = 4;
 	//Although MS Windows use backslashes in their file paths, the standard for zip archive states
 	//that file separators should always be the backslash
 	private static final String BWD_SLASH = "\\\\";
@@ -115,7 +116,7 @@ public class DeltaGeneratorTool
 						while ((line = reader.readLine()) != null) {
 							String[] idET = split(line);
 							//Have we seen this id before?
-							ComponentData componentData = getComponentData(idET[IDX_ID], isIdentifierFile);
+							ComponentData componentData = getComponentData(line, idET[IDX_ID], isIdentifierFile);
 							componentData.addPreviouslySeenEffectiveTime(Integer.parseInt(idET[IDX_EFFECTIVE_TIME]));
 						}
 					}
@@ -129,9 +130,12 @@ public class DeltaGeneratorTool
 		}
 	}
 
-	private ComponentData getComponentData(String id, boolean isIdentifierFile) {
+	private ComponentData getComponentData(String line, String id, boolean isIdentifierFile) {
 		if (isIdentifierFile) {
-			return alternateIdentifierDataMap.computeIfAbsent(id, k -> new ComponentData());
+			//Only one row with the same alternateIdentifier and identifierSchemeId is current at any time,
+			//so the alternateIdentifier alone is not unique
+			String key = id + FIELD_DELIMITER + line.split(FIELD_DELIMITER)[IDX_IDENTIFIER_SCHEME_ID];
+			return alternateIdentifierDataMap.computeIfAbsent(key, k -> new ComponentData());
 		}
 		return componentDataMap.computeIfAbsent(new TinyUUID(id), k -> new ComponentData());
 	}
@@ -182,7 +186,7 @@ public class DeltaGeneratorTool
 							} else {
 								String[] parts = split(line);
 								int effectiveDate = Integer.parseInt(parts[IDX_EFFECTIVE_TIME]);
-								ComponentData componentData = getComponentData(parts[IDX_ID], isIdentifierFile);
+								ComponentData componentData = getComponentData(line, parts[IDX_ID], isIdentifierFile);
 								
 								if (firstPass && outputLatestStates) {
 									if (componentData.latestComponentVersion == NOT_SET) {
