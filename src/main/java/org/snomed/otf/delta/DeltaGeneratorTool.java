@@ -20,6 +20,8 @@ public class DeltaGeneratorTool
 	public static final int IDX_ID = 0;
 	public static final int IDX_EFFECTIVE_TIME = 1;
 	public static final int NOT_SET = -1;
+	//The Identifier file's alternateIdentifier is a String in its native scheme (eg a LOINC code), not an SCTID or UUID
+	private static final String IDENTIFIER_CONTENT_TYPE = "Identifier";
 	//Although MS Windows use backslashes in their file paths, the standard for zip archive states
 	//that file separators should always be the backslash
 	private static final String BWD_SLASH = "\\\\";
@@ -32,6 +34,7 @@ public class DeltaGeneratorTool
 	private boolean outputLatestStates;
 	
 	private final Map<TinyUUID, ComponentData> componentDataMap = new HashMap<>();
+	private final Map<String, ComponentData> alternateIdentifierDataMap = new HashMap<>();
 	
 	public static void main(String[] args) throws IOException {
 		DeltaGeneratorTool app = new DeltaGeneratorTool();
@@ -105,18 +108,14 @@ public class DeltaGeneratorTool
 					Path p = Paths.get(zipEntry.getName());
 					if (p.getFileName().toString().contains("Full")) {
 						info("\tProcessing " + p.getFileName());
+						boolean isIdentifierFile = isIdentifierFile(p);
 						reader = new BufferedReader(new InputStreamReader(zis, StandardCharsets.UTF_8));// Leave open otherwise zip stream is closed.
 						reader.readLine();  //Ditch the header
 						String line;
 						while ((line = reader.readLine()) != null) {
 							String[] idET = split(line);
 							//Have we seen this id before?
-							TinyUUID idAsUUID = new TinyUUID(idET[IDX_ID]);
-							ComponentData componentData = componentDataMap.get(idAsUUID);
-							if (componentData == null) {
-								componentData = new ComponentData();
-								componentDataMap.put(idAsUUID, componentData);
-							}
+							ComponentData componentData = getComponentData(idET[IDX_ID], isIdentifierFile);
 							componentData.addPreviouslySeenEffectiveTime(Integer.parseInt(idET[IDX_EFFECTIVE_TIME]));
 						}
 					}
@@ -128,6 +127,19 @@ public class DeltaGeneratorTool
 				reader.close();
 			}
 		}
+	}
+
+	private ComponentData getComponentData(String id, boolean isIdentifierFile) {
+		if (isIdentifierFile) {
+			return alternateIdentifierDataMap.computeIfAbsent(id, k -> new ComponentData());
+		}
+		return componentDataMap.computeIfAbsent(new TinyUUID(id), k -> new ComponentData());
+	}
+
+	private static boolean isIdentifierFile(Path p) {
+		//File names are FileType_ContentType_ContentSubType_..., eg sct2_Identifier_Full_LO1010000_20261021.txt
+		String[] nameParts = p.getFileName().toString().split("_");
+		return nameParts.length > 1 && nameParts[1].equals(IDENTIFIER_CONTENT_TYPE);
 	}
 
 	private String[] split(String line) {
@@ -150,6 +162,7 @@ public class DeltaGeneratorTool
 					Path p = Paths.get(zipEntry.getName());
 					if (p.getFileName().toString().contains("Full")) {
 						info("\t" + (firstPass?"First pass p":"P") + "rocessing " + p.getFileName());
+						boolean isIdentifierFile = isIdentifierFile(p);
 						boolean isHeader = true;
 						File outFile;
 						BufferedWriter writer= null;
@@ -168,14 +181,8 @@ public class DeltaGeneratorTool
 								isHeader = false;
 							} else {
 								String[] parts = split(line);
-								TinyUUID idAsUUID = new TinyUUID(parts[IDX_ID]);
 								int effectiveDate = Integer.parseInt(parts[IDX_EFFECTIVE_TIME]);
-								
-								ComponentData componentData = componentDataMap.get(idAsUUID);
-								if (componentData == null) {
-									componentData = new ComponentData();
-									componentDataMap.put(idAsUUID, componentData);
-								}
+								ComponentData componentData = getComponentData(parts[IDX_ID], isIdentifierFile);
 								
 								if (firstPass && outputLatestStates) {
 									if (componentData.latestComponentVersion == NOT_SET) {
