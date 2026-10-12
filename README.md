@@ -1,4 +1,4 @@
-# RF2 Delta Generator Tool 3.0
+# RF2 Delta Generator Tool 3.1
 
 Command line Java tool to calculate the delta from two archives containing SNOMED Full files.
 
@@ -43,3 +43,6 @@ To load a new version of a code system into Snowstorm either use the `--latest-s
 - [Validation of Results](docs/Validation.md)
 - [Edition Effective Time LeapFrogging](docs/EditionET_LeapFrogging.md)
 
+## What's New
+
+Version 3.1 : fixes mishandling of the Alternate Identifier file when processing the LOINC Ontology Extension
